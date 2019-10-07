@@ -7,25 +7,153 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '-')
 
 # Include libraries
 library(dplyr)
+library(tidyr)
 
-```
-
-```{r load-data}
-
-mri <- read.table("data/mri.txt", header = TRUE) %>% 
+# Load data
+mri <- 
+  read.table("data/mri.txt", header = TRUE) %>% 
   dplyr::as_tibble() %>% 
-  dplyr::select(male, weight, height, atrophy, obstime, death)
+  dplyr::select(age, male, weight, height, atrophy, obstime, death)
+
+```
+
+## Population Overview
+
+This study looked to observe the population of elderly (65+ year) and generally
+healthy adults. To do this, the study randomly selected US adults enrolled in
+Medicare who were at least 65 years old and generally healthy. Due to the high
+enrollment of of individuals in the study, the cohort presents a good
+representation of older adults in the US.
+
+In total, this study included `r nrow(mri)` adults aged `r min(mri$age)` to 
+`r max(mri$age)`. Of these individuals `r nrow(filter(mri, male == 0))` were
+reported as female, and `r nrow(filter(mri, male == 1))` as male.
+
+
+## Variable Description
+
+In this report we are examining a subset of variable within the data. These
+variables are listed below, along with the type of variable they represent:
+
+```{r variable-desc}
+
+var_desc <- tibble::tribble(
+  ~Variable, ~Type,
+  "age",     "Quantitative continuous (ratio, measured discretely)",
+  "male",    "Qualitative nominal",
+  "weight",  "Quantitative continuous (ratio)",
+  "height",  "Quantitative continuous (ratio)",
+  "atrophy", "Quantitative continuous (ratio, measured discretely)",
+  "obstime", "Quantitative continuous (censored)",
+  "death",   "Binary"
+  
+)
+
+knitr::kable(var_desc)
+
+```
+
+
+## Summary Statistics
+
+```{r summary-stats}
+
+summary_table <- function(data, summary_funcs) {
+  
+  data %>%
+    dplyr::summarise_all(summary_funcs) %>%
+    tidyr::pivot_longer(
+      cols = everything(),
+      names_to = c("variable", "stat"),
+      names_pattern = "(.*)_(.*)",
+      values_to = "value"
+    ) %>%
+    tidyr::pivot_wider(names_from = "stat", values_from = "value")
+  
+}
+
+summary_funcs <- list(
+  obs = ~ length(.),
+  ms = ~ sum(is.na(.)),
+  mean = mean,
+  sd = sd,
+  min = min,
+  q25 = ~ quantile(., 0.25),
+  median = median,
+  q75 = ~ quantile(., 0.75),
+  max = max
+)
+
+# Generate summary tables
+summary_male <- mri %>%
+  dplyr::filter(male == 1) %>%
+  summary_table(summary_funcs) %>% 
+  magrittr::inset(.$variable == "obstime", 4:10, NA)
+
+summary_female <- mri %>%
+  dplyr::filter(male == 0) %>%
+  summary_table(summary_funcs) %>% 
+  magrittr::inset(.$variable == "obstime", 4:10, NA)
+
+summary_all <- mri %>%
+  summary_table(summary_funcs) %>% 
+  magrittr::inset(.$variable == "obstime", 4:10, NA)
 
 
 ```
 
-```{r population-description}
 
-mri_summary <- summary(mri)
+We can also generate summary statistics for the subset of variables we are
+interested in. Not every variable benefits form the same summary statistics, so
+only relevant statistics for each variable are displayed in the tables below.
+
+In particular, since _obstime_ is a censored variable, it doesn't make sense to
+include information about the percentiles or mean, since the data has inherent
+missing-ness.
+
+```{r}
+knitr::kable(summary_all, caption = "All observations", digits = 2)
+```
+
+In addition to looking at the complete set of observations, we can split the 
+data to look at trends within different groups of the cohort. Here we look at
+the summary of the female and male members of the sample separately.
+
+```{r} 
+knitr::kable(summary_female, caption = "Female observations", digits = 2)
+```
+
+```{r} 
+knitr::kable(summary_male, caption = "Male observations", digits = 2)
+```
+
+
+## Minimum Follow-up
+
+```{r min-followup}
+
+min_followup <- mri %>% 
+  dplyr::filter(death == 0) %>% 
+  dplyr::mutate(obstime_yr = obstime / 365) %>% 
+  dplyr::arrange(obstime_yr) %>% 
+  magrittr::extract2("obstime_yr") %>% 
+  min()
 
 ```
+
+In order to get a better understanding of how long members of the cohort were
+observed, one thing we can do is look at the minimum amount of years a person
+who was living at the end of the study was observed. To do this, we must filter
+the data to include only members who were alive at the end of the study 
+( _death = 0_ ), convert observation time from days to years 
+( _obstime_yr = obstime / 365_ ), then find the minimum value 
+( _min(obstime_yr_ ). 
+
+Doing this, we arrive at a minimum observation time of 
+**`r round(min_followup, digits = 2)`** years.
 
 
