@@ -21,17 +21,20 @@ mri <-
 
 ```
 
+
 ## Population Overview
 
-This study looked to observe the population of elderly (65+ year) and generally
-healthy adults. To do this, the study randomly selected US adults enrolled in
-Medicare who were at least 65 years old and generally healthy. Due to the high
-enrollment of of individuals in the study, the cohort presents a good
-representation of older adults in the US.
+This study aimed to observe the population of elderly (65+ year) and generally
+healthy adults in order to better access the risk factors associated with
+cardiovascular and cerebrovascular disease. To do this, the study randomly 
+selected US adults enrolled in Medicare who were at least 65 years old and 
+generally healthy. Due to the high enrollment of of individuals in the study, 
+the cohort presents a good representation of older adults in the US.
 
-In total, this study included `r nrow(mri)` adults aged `r min(mri$age)` to 
-`r max(mri$age)`. Of these individuals `r nrow(filter(mri, male == 0))` were
-reported as female, and `r nrow(filter(mri, male == 1))` as male.
+In total, this study included **`r nrow(mri)`** adults aged **`r min(mri$age)`** 
+to **`r max(mri$age)`**. Of these individuals 
+**`r nrow(filter(mri, male == 0))`** were reported as female, and 
+**`r nrow(filter(mri, male == 1))`** as male.
 
 
 ## Variable Description
@@ -44,12 +47,12 @@ variables are listed below, along with the type of variable they represent:
 var_desc <- tibble::tribble(
   ~Variable, ~Type,
   "age",     "Quantitative continuous (ratio, measured discretely)",
-  "male",    "Qualitative nominal",
+  "male",    "Binary",
   "weight",  "Quantitative continuous (ratio)",
   "height",  "Quantitative continuous (ratio)",
   "atrophy", "Quantitative continuous (ratio, measured discretely)",
   "obstime", "Quantitative continuous (censored)",
-  "death",   "Binary"
+  "death",   "Binary (indicator of censoring time)"
   
 )
 
@@ -89,31 +92,48 @@ summary_funcs <- list(
 )
 
 # Generate summary tables
+summary_all <- mri %>%
+  summary_table(summary_funcs) %>% 
+  magrittr::inset(.$variable == "obstime", 4:10, NA) %>% 
+  magrittr::inset(.$variable == "male", c(5, 7:9), NA) %>% 
+  magrittr::inset(.$variable == "death", c(5, 7:9), NA)
+
 summary_male <- mri %>%
   dplyr::filter(male == 1) %>%
   summary_table(summary_funcs) %>% 
-  magrittr::inset(.$variable == "obstime", 4:10, NA)
+  magrittr::inset(.$variable == "obstime", 4:10, NA) %>% 
+  magrittr::inset(.$variable == "male", 4:10, NA) %>% 
+  magrittr::inset(.$variable == "death", c(5, 7:9), NA)
 
 summary_female <- mri %>%
   dplyr::filter(male == 0) %>%
   summary_table(summary_funcs) %>% 
-  magrittr::inset(.$variable == "obstime", 4:10, NA)
+  magrittr::inset(.$variable == "obstime", 4:10, NA) %>% 
+  magrittr::inset(.$variable == "male", 4:10, NA) %>% 
+  magrittr::inset(.$variable == "death", c(5, 7:9), NA)
 
-summary_all <- mri %>%
-  summary_table(summary_funcs) %>% 
-  magrittr::inset(.$variable == "obstime", 4:10, NA)
+
 
 
 ```
 
-
 We can also generate summary statistics for the subset of variables we are
 interested in. Not every variable benefits form the same summary statistics, so
-only relevant statistics for each variable are displayed in the tables below.
+only relevant statistics for each variable are displayed in the tables below,
+along with the reasoning for why some variables include fewer summary 
+statistics.
 
-In particular, since _obstime_ is a censored variable, it doesn't make sense to
-include information about the percentiles or mean, since the data has inherent
-missing-ness.
+ - _male_ is a binary variable, so all we need to understand the distribution is 
+   the mean to understand the proportion of data in each category, as well as
+   the min and max to verify that the variable is indeed binary.
+ - _obstime_ is a censored variable, so it doesn't make sense to
+   include information about the percentiles or mean, since the data has inherent
+   missing-ness.
+ - _death_ is an indicator of the censoring time, so again it doesn't make sense
+   to include summary statistics due to the inherent missing-ness of the
+   variable. The mean is included however to get an idea of the proportions of
+   the uncensored observations, along with the min and max to verify the binary
+   nature of the uncensored observations.
 
 ```{r}
 knitr::kable(summary_all, caption = "All observations", digits = 2)
@@ -121,14 +141,16 @@ knitr::kable(summary_all, caption = "All observations", digits = 2)
 
 In addition to looking at the complete set of observations, we can split the 
 data to look at trends within different groups of the cohort. Here we look at
-the summary of the female and male members of the sample separately.
+the summary of the female and male members of the sample separately. Note that
+we don't display any statistics for _male_ since we have filtered the data to
+include only one category.
 
 ```{r} 
-knitr::kable(summary_female, caption = "Female observations", digits = 2)
+knitr::kable(summary_female, caption = "Female observations (male = 0)", digits = 2)
 ```
 
 ```{r} 
-knitr::kable(summary_male, caption = "Male observations", digits = 2)
+knitr::kable(summary_male, caption = "Male observations (male = 1)", digits = 2)
 ```
 
 
@@ -138,8 +160,7 @@ knitr::kable(summary_male, caption = "Male observations", digits = 2)
 
 min_followup <- mri %>% 
   dplyr::filter(death == 0) %>% 
-  dplyr::mutate(obstime_yr = obstime / 365) %>% 
-  dplyr::arrange(obstime_yr) %>% 
+  dplyr::mutate(obstime_yr = obstime / 365) %>%
   magrittr::extract2("obstime_yr") %>% 
   min()
 
@@ -151,9 +172,9 @@ who was living at the end of the study was observed. To do this, we must filter
 the data to include only members who were alive at the end of the study 
 ( _death = 0_ ), convert observation time from days to years 
 ( _obstime_yr = obstime / 365_ ), then find the minimum value 
-( _min(obstime_yr_ ). 
+( _min(obstime_yr)_ ). 
 
-Doing this, we arrive at a minimum observation time of 
-**`r round(min_followup, digits = 2)`** years.
+Doing this, we arrive at a minimum follow-up time of 
+**`r round(min_followup, digits = 2)` years**.
 
 
