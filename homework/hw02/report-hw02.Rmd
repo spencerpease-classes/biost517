@@ -25,7 +25,39 @@ mri <-
   dplyr::as_tibble() %>% 
   dplyr::select(.data$crt, .data$obstime, .data$death)
 
+
 ```
+
+# Overview of the Data
+
+The data in this report comes from a study of the risk factors associated with
+cardiovascular and cerebrovascular disease amoung generally healther older
+adults. Specifically, this study enrolled a cohort of older (65+) and generally
+healthy adults by randomly sampling individuals enrolled in the United States
+Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
+study.
+
+
+This report focuses on three variables from the study data. They are briefly
+dscribed below (see study documentation for more details):
+
+```{r variable-description}
+
+var_desc <- tibble::tribble(
+  ~Variable, ~Units, ~Description,
+  "crt", "mg/dl", "Measure of creatinine in the participant's blood",
+  "obstime", "days", "Total time the participant was observed on the study",
+  "death", "binary", "Indicator that the participant died during the study"
+)
+
+knitr::kable(var_desc, caption = "Variable Descriptions")
+
+```
+
+Of particular note _obstime_ is measured in days, but this report is interested
+in grouping by vital status (_death_) at five years. This report treats a year
+as exaclty 365 days, and will still report results using units of days
+($365 \frac{days}{year} \times 5 years = 1825 days$).
 
 
 )
