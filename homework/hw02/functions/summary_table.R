@@ -28,20 +28,29 @@ summary_table <- function(data, summary_funcs = NULL) {
   summary_tbl <- dplyr::summarise_all(data, summary_funcs)
 
   # Additional reshaping when summarising multiple columns
-  if (ncol(data) > 1) {
+  if (ncol(data) - length(dplyr::group_vars(data)) > 1) {
     summary_tbl <- summary_tbl %>%
       tidyr::pivot_longer(
-        cols = tidyselect::everything(),
+        cols = -tidyselect::one_of(dplyr::group_vars(data)),
         names_to = c("variable", "stat"),
         names_pattern = "(.*)_(.*)",
         values_to = "value"
       ) %>%
       tidyr::pivot_wider(
-        summary_tbl,
         names_from = "stat",
         values_from = "value"
       )
 
+  } else {
+    summary_tbl <- summary_tbl %>%
+      dplyr::mutate(
+        variable = setdiff(colnames(data), dplyr::group_vars(data))
+      ) %>%
+      dplyr::select(
+        tidyselect::one_of(dplyr::group_vars(data)),
+        .data$variable,
+        tidyselect::everything()
+      )
   }
 
   summary_tbl
