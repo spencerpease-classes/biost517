@@ -1,53 +1,33 @@
 ---
-title: "Homework 01"
+title: "Homework 02"
 author: "Spencer Pease"
 date: "10/14/2019"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+
+# Set output options
 knitr::opts_chunk$set(echo = FALSE)
 options(knitr.kable.NA = '-')
 
+
 # Include libraries
-library(dplyr)
-library(tidyr)
+library(magrittr)
+
+# Source helper functions
+source("functions/summary_table.R")
+
 
 # Load data
 mri <- 
   read.table("data/mri.txt", header = TRUE) %>% 
   dplyr::as_tibble() %>% 
-  dplyr::select(crt, obstime, death)
+  dplyr::select(.data$crt, .data$obstime, .data$death)
 
 ```
 
 
-```{r summary-stats}
-
-summary_table <- function(data, summary_funcs) {
-  
-  data %>%
-    dplyr::summarise_all(summary_funcs) %>%
-    tidyr::pivot_longer(
-      cols = everything(),
-      names_to = c("variable", "stat"),
-      names_pattern = "(.*)_(.*)",
-      values_to = "value"
-    ) %>%
-    tidyr::pivot_wider(names_from = "stat", values_from = "value")
-  
-}
-
-summary_funcs <- list(
-  obs = ~ length(.),
-  ms = ~ sum(is.na(.)),
-  mean = mean,
-  sd = sd,
-  min = min,
-  q25 = ~ quantile(., 0.25),
-  median = median,
-  q75 = ~ quantile(., 0.75),
-  max = max
 )
 
 ```
