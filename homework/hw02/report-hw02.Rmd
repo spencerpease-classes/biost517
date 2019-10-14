@@ -138,7 +138,14 @@ say with some confidence that the difference in point estimates between the two
 vital status groups is due to more than just variations in the sample mean.
 
 It is important to note that we can compare these confidence intervals in this
-manner because...
+manner because we can approximate both the distribution of the sample means for
+both of these subsets to a normal distribution because of the Central Limit
+Theorem, which states _for a sufficiently large n, the distribution of sample
+means approximates a normal distribution_. Our sample sizes for each subset are
+sufficiently large (approximately $100$ and $600$), so we can say the
+distributions are normal. Because they are normal, we can then standardize them
+and use the a standard z-score to build a confidence interval, allowing the
+two distributions to be compared.
 
 
 ## Exploring different levels of confidence
@@ -214,8 +221,29 @@ knitr::kable(
 
 # Examining "High" Creatinine Levels
 
-Given all these
+With the population inferences we made above, we can begin to make some
+statements regarding what a reasonable population parameter would be, and if any
+of our target population groups include exceptional values.
 
-```{r}
+This report defines a "high" creatinine level in an individual as anything over
+$1.2 \frac{mg}{dl}$. Grouping our data by vital status at $5$ years, we are
+able to examine if there are any differences in the inferred population mean of
+creatinine level for each group.
 
-```
+Looking at the subset of individuals who survived at least $5$ years since the
+date of MRI, we see from the prior tables that the confidence interval of both
+the arithmetic and geometric point estimate fall below our defined threshold
+of $1.2 \frac{mg}{dl}$. Since our confidence interval represents the range that
+we are 95% certain includes the true population mean of creatinine level, we
+can say that a similar population of individuals who survive at least $5$ years
+would not be prone to high creatinine levels.
+
+For the subset of individuals who die within $5$ years of their MRI date, we
+again look at the prior tables to see that the confidence interval of the for 
+both the arithmetic and geometric interpretations of the point estimate of mean 
+creatinine level include the values above the defined threshold of 
+$1.2 \frac{mg}{dl}$ for high creatinine level. Because of this, we can't say
+definitively if a population of similar individuals who died within $5$ years of
+their MRI have high mean creatinine level, since our 95% confidence interval
+includes values on either side of the threshold, so the true population mean
+could be anywhere in that range.
