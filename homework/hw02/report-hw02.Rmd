@@ -17,6 +17,7 @@ library(magrittr)
 
 # Source helper functions
 source("functions/summary_table.R")
+source("functions/population_estimates.R")
 
 
 # Load data
