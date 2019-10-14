@@ -21,10 +21,19 @@ source("functions/population_estimates.R")
 
 
 # Load data
-mri <- 
-  read.table("data/mri.txt", header = TRUE) %>% 
-  dplyr::as_tibble() %>% 
+mri <-
+  read.table("data/mri.txt", header = TRUE) %>%
+  dplyr::as_tibble() %>%
   dplyr::select(.data$crt, .data$obstime, .data$death)
+
+mri_grouped <- mri %>%
+  dplyr::mutate(
+    `Vital Status at 5 Years` = dplyr::if_else(
+      .data$obstime >= 5 * 365,
+      "Survived 5+ years", "Died within 5 years"
+    )
+  ) %>%
+  dplyr::group_by(.data$`Vital Status at 5 Years`)
 
 
 ```
@@ -32,7 +41,7 @@ mri <-
 # Overview of the Data
 
 The data in this report comes from a study of the risk factors associated with
-cardiovascular and cerebrovascular disease amoung generally healther older
+cardiovascular and cerebrovascular disease among generally healthier older
 adults. Specifically, this study enrolled a cohort of older (65+) and generally
 healthy adults by randomly sampling individuals enrolled in the United States
 Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
@@ -40,7 +49,7 @@ study.
 
 
 This report focuses on three variables from the study data. They are briefly
-dscribed below (see study documentation for more details):
+described below (see the study documentation for more details):
 
 ```{r variable-description}
 
@@ -57,10 +66,156 @@ knitr::kable(var_desc, caption = "Variable Descriptions")
 
 Of particular note _obstime_ is measured in days, but this report is interested
 in grouping by vital status (_death_) at five years. This report treats a year
-as exaclty 365 days, and will still report results using units of days
+as exactly 365 days, and will still report results using units of days
 ($365 \frac{days}{year} \times 5 years = 1825 days$).
 
 
+# Creatinine Levels Across Groups Defined by Vital Status at 5 Years
+
+## Summary Statistics
+
+We begin this report by looking at the summary statistics of the creatinine
+level variable distribution for two subsets of the data: participants who
+survived at least five years since the date of MRI, and participants who did not
+survive at least five years.
+
+```{r crt-distribution-summary}
+
+summary_surv <- mri_grouped %>%
+  dplyr::select(.data$crt, dplyr::group_cols()) %>%
+  summary_table() %>%
+  dplyr::select(-.data$n, -.data$variable)
+
+
+knitr::kable(
+  summary_surv,
+  caption = "Summary of creatinine level distribution by vital status group",
+  digits = 2
 )
+
+```
+
+Between these two groups, we observe that the mean, median, IQR, and minimum
+values are within $.1$ to $.2$ $\frac{mg}{dl}$ of each other. The bigger
+differences can be seen in the number of observations in each group, with
+the surviving group having approximately $5$ times as many observation as the
+non-surviving group. The distribution of the non-surviving group also has a
+heavier right-skew, leading to a higher maximum value and standard deviation.
+
+
+## Population Inference
+
+We can use the distribution of creatinine level in our sample to infer some
+parameters of the larger population. Below, we look at the point estimate
+(sample mean), standard error of the point estimate, and $95\%$ confidence
+interval of the population for separate vital status groups at $5$ years.
+
+```{r pop-inference-summary}
+
+crt_pop_inference <- mri_grouped %>%
+  dplyr::select(.data$crt, dplyr::group_cols()) %>%
+  summary_table(summary_funcs = list(
+    "point est." = ~mean(., na.rm = TRUE),
+    "std. error" = ~standard_error(.),
+    "95% CI (lower)" = ~confidence_interval(., .95)["lower"],
+    "95% CI (upper)" = ~confidence_interval(., .95)["upper"]
+  )) %>%
+  dplyr::select(-.data$variable)
+
+knitr::kable(
+  crt_pop_inference,
+  caption = "Population inference of creatinine level by vital status group",
+  digits = 2
+)
+
+```
+
+Looking at the $95\%$ confidence intervals for both vital status groups, we see
+that there is no overlap in the intervals. Since the confidence interval is
+interpreted as having _a confidence of 95% that the true population mean of
+creatinine level for a given group lies in their respective intervals_, we can
+say with some confidence that the difference in point estimates between the two
+vital status groups is due to more than just variations in the sample mean.
+
+It is important to note that we can compare these confidence intervals in this
+manner because...
+
+
+## Exploring different levels of confidence
+
+Narrowing our scope to look at only participants in the vital status group not
+surviving at least $5$ years, we can further explore the confidence interval
+of creatinine level by looking at the intervals created from different
+confidence levels. Let's look at three common levels: $90\%$, $95\%$, and
+$99\%$.
+
+```{r alternate-confidence-levels}
+
+crt_death <- mri %>%
+  dplyr::filter(.data$obstime < 5 * 365) %>%
+  dplyr::pull("crt")
+
+crt_ci <-
+  list(
+    "90%" = confidence_interval(crt_death, alpha = .90),
+    "95%" = confidence_interval(crt_death, alpha = .95),
+    "99%" = confidence_interval(crt_death, alpha = .99)
+  ) %>%
+  tibble::enframe("Confidence Level") %>%
+  tidyr::unnest_wider("value")
+
+knitr::kable(
+  crt_ci,
+  caption = paste("Confidence intervals for creatinine level among",
+                  "participants not surviving at least 5 years"),
+  digits = 2
+)
+
+```
+
+Notice the pattern of widening intervals for higher levels of confidence. This
+pattern exists because, for the same set of data, we can only be more confident
+that the true mean of a population parameter falls within an interval if that
+interval encompasses a larger range of possible values. Conversely, we can set
+a smaller interval, but we can't be as confident that the true value falls
+within it.
+
+
+# Geometric Mean Analysis
+
+Instead of using the the **arithmetic** mean, standard error, and confidence
+interval to build our population inference, we can also look at the
+**geometric** mean, standard error, and confidence interval. These geometric
+statistics are useful when the data has an underlying exponential nature. Below
+we provide a table of the geometric population inference as an alternative to
+the arithmetic equivalent.
+
+```{r geometric-inference-summary}
+
+geo_crt_inference <- mri_grouped %>%
+  dplyr::select(.data$crt, dplyr::group_cols()) %>%
+  summary_table(summary_funcs = list(
+    "point est." = ~exp(mean(log(.), na.rm = TRUE)),
+    "std. error" = ~exp(standard_error(log(.))),
+    "95% CI (lower)" = ~exp(confidence_interval(log(.), .95))["lower"],
+    "95% CI (upper)" = ~exp(confidence_interval(log(.), .95))["upper"]
+  )) %>%
+  dplyr::select(-.data$variable)
+
+knitr::kable(
+  geo_crt_inference,
+  caption = paste("Geometric population inference of creatinine level by",
+                  "vital status group"),
+  digits = 2
+)
+
+```
+
+
+# Examining "High" Creatinine Levels
+
+Given all these
+
+```{r}
 
 ```
