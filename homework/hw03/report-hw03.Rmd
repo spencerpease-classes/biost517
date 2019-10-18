@@ -1,0 +1,66 @@
+---
+title: "Homework 03"
+author: "Spencer Pease"
+date: "10/21/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+# Set output options
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '-')
+
+
+# Include libraries
+library(magrittr)
+library(ggplot2)
+
+# Source helper functions
+source("functions/summary_table.R")
+source("functions/population_estimates.R")
+
+
+# Load data
+mri <-
+  read.table("data/mri.txt", header = TRUE) %>%
+  dplyr::as_tibble() %>%
+  dplyr::select(.data$crt, .data$obstime, .data$death)
+
+mri_grouped <- mri %>%
+  dplyr::mutate(
+    `Vital Status at 5 Years` = dplyr::if_else(
+      .data$obstime >= 5 * 365,
+      "Survived 5+ years", "Died within 5 years"
+    )
+  ) %>%
+  dplyr::group_by(.data$`Vital Status at 5 Years`)
+
+
+```
+
+# Overview of the Data
+
+The data in this report comes from a study of the risk factors associated with
+cardiovascular and cerebrovascular disease among generally healthier older
+adults. Specifically, this study enrolled a cohort of older (65+) and generally
+healthy adults by randomly sampling individuals enrolled in the United States
+Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
+study.
+
+
+This report focuses on three variables from the study data. They are briefly
+described below (see the study documentation for more details):
+
+```{r variable-description}
+
+var_desc <- tibble::tribble(
+  ~Variable, ~Units, ~Description,
+  "crt", "mg/dl", "Measure of creatinine in the participant's blood",
+  "obstime", "days", "Total time the participant was observed on the study",
+  "death", "binary", "Indicator that the participant died during the study"
+)
+
+knitr::kable(var_desc, caption = "Variable Descriptions")
+
+```
