@@ -25,16 +25,18 @@ source("functions/population_estimates.R")
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
-  dplyr::select(.data$crt, .data$obstime, .data$death)
+  dplyr::select(
+    .data$packyrs, .data$crt, .data$male, .data$obstime, .data$death
+  )
 
 mri_grouped <- mri %>%
   dplyr::mutate(
-    `Vital Status at 5 Years` = dplyr::if_else(
+    `Survival Status` = dplyr::if_else(
       .data$obstime >= 5 * 365,
-      "Survived 5+ years", "Died within 5 years"
+      "5+ years", "<5 years"
     )
   ) %>%
-  dplyr::group_by(.data$`Vital Status at 5 Years`)
+  dplyr::group_by(.data$`Survival Status`)
 
 
 ```
@@ -49,14 +51,16 @@ Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
 study.
 
 
-This report focuses on three variables from the study data. They are briefly
+This report focuses on five variables from the study data. They are briefly
 described below (see the study documentation for more details):
 
 ```{r variable-description}
 
 var_desc <- tibble::tribble(
   ~Variable, ~Units, ~Description,
+  "packyrs", "1 pack of cigarettes per day for 1 year", "Smoking history",
   "crt", "mg/dl", "Measure of creatinine in the participant's blood",
+  "male", "0 = female, 1 = male", "Binary Indicator of patient sex",
   "obstime", "days", "Total time the participant was observed on the study",
   "death", "binary", "Indicator that the participant died during the study"
 )
