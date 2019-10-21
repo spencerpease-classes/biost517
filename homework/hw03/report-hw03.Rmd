@@ -318,8 +318,15 @@ hurts the validity of our tests.
 
 # (_Q2_) Patient Sex and Smoking History
 
+In the this next section of the report, we assess if there is a significant
+difference in smoking history across groups defined by sex.
+
+
 ### (_Q2.a_)
 
+We can again look at the point estimate for the difference in mean pack years of
+smoking history between similar population groups defined by sex, as well as the
+confidence interval of this point estimate.
 
 ```{r}
 
@@ -335,31 +342,69 @@ knitr::kable(
 
 ```
 
+Given that our confidence interval does not include zero, we can say there is an
+actual association between smoking history and patient sex that leads to a 
+difference in mean pack years of smoking history between males and females.
 
 
 ### (_Q2.b_)
 
+Another way to test the relationship between smoking history and sex is the
+_two-sided heteroscedastic t-test_, which allows for the possibility of unequal
+variances across groups. For this test, we define our _null_ and _alternative_
+hypotheses as:
 
+ * $H_{0}$: $\mu_{1} = \mu_{2}$ There **is not** a difference in the mean pack
+   years between the two populations.
+ * $H_{a}$: $\mu_{1} \neq \mu_{2}$ These **is** a difference in the mean pack
+   years between the two populations.
 
 ```{r}
 
-summary_table_t_het_sex_packyrs <- mri_surv %>%
+summary_table_t_het_sex_packyrs <- mri %>%
   t.test(`packyrs`~`male`, data = .) %>%
   broom::glance()
+
+pval_thet_sex <- round(summary_table_t_het_sex_packyrs$p.value, 10)
+
+knitr::kable(
+  summary_table_t_het_sex_packyrs %>%
+    dplyr::select(
+      `95% CI (lower)` = conf.low,
+      `95% CI (upper)` = conf.high,
+      `p-value` = p.value
+    ),
+  caption = paste("Two-sided heteroscedastic t-test results of smoking history",
+                  "by sex group"),
+  digits = 2
+)
 
 
 ```
 
+The _p-value_ for testing the null hypothesis is `r pval_thet_sex` (below the
+threshold set by $\alpha = .95$), which leads us to the conclusion that that we 
+should reject the null hypothesis and that there is an association between 
+smoking history and sex.
 
 
 ### (_Q2.c_)
 
+Both of these tests produce similar confidence intervals and assert that there
+is a statistically significant relationship between sex and smoking history.
+
 
 # (_Q3_) Survival Status and Creatinine Level
 
+Lastly, we will examine the relationship between survival status at five years
+and creatinine level in our population.
+
+
 ### (_Q3.a_)
 
-
+Here we looks at the point estimate for the difference in mean pack years of
+creatinine level between similar population groups defined by survival status and
+the $95\%$ confidence interval it produces.
 
 ```{r}
 
@@ -372,9 +417,53 @@ knitr::kable(
 )
 ```
 
+From these results, we see that while the difference between populations means
+is small, it is still significant because $0$ falls outside of our interval, so
+we can still say that there is an association between creatinine level and
+survival status, though we may want to collect more data to be sure.
+
 
 ### (_Q3.b_)
 
+We also perform the _two-sided t-test allowing for heteroscedasticity_, where
+we define our hypotheses as:
+
+ * $H_{0}$: $\mu_{1} = \mu_{2}$ There **is not** a difference in the mean 
+   creatinine level between the two populations.
+ * $H_{a}$: $\mu_{1} \neq \mu_{2}$ These **is** a difference in the mean 
+   creatinine level between the two populations.
+
+```{r}
+
+summary_table_t_het_surv_crt <- mri_surv %>%
+  t.test(`crt`~`Survival Status`, data = .) %>%
+  broom::glance()
+
+pval_thet_crt <- round(summary_table_t_het_surv_crt$p.value, 6)
+
+knitr::kable(
+  summary_table_t_het_surv_crt %>%
+    dplyr::select(
+      `95% CI (lower)` = conf.low,
+      `95% CI (upper)` = conf.high,
+      `p-value` = p.value
+    ),
+  caption = paste("Two-sided heteroscedastic t-test results of",
+                  " creatinine level by vital status group"),
+  digits = 2
+)
+
+```
+
+Given an $\alpha$ level of $.95$ and a _p-value_ of `r pval_thet_crt` this test
+confirms there is a statistically significant association between creatinine 
+level and five-year survival status.
 
 
 ### (_Q3.c_)
+
+Again, both tests have similar confidence intervals, supporting the claim that
+there is an association between creatinine level and survival status among our
+population. The fact that both test produce similar results may be a sign that
+the population variance of each group is the same as the the sample variance of
+each group.
