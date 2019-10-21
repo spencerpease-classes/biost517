@@ -29,7 +29,7 @@ mri <-
     .data$packyrs, .data$crt, .data$male, .data$obstime, .data$death
   )
 
-mri_grouped <- mri %>%
+mri_surv <- mri %>%
   dplyr::mutate(
     `Survival Status` = dplyr::if_else(
       .data$obstime >= 5 * 365,
@@ -41,6 +41,7 @@ mri_grouped <- mri %>%
 
 ```
 
+
 # Overview of the Data
 
 The data in this report comes from a study of the risk factors associated with
@@ -50,17 +51,16 @@ healthy adults by randomly sampling individuals enrolled in the United States
 Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
 study.
 
-
 This report focuses on five variables from the study data. They are briefly
 described below (see the study documentation for more details):
 
-```{r variable-description}
+```{r variable-description, fig.cap="Descriptions of relevant variables",}
 
 var_desc <- tibble::tribble(
   ~Variable, ~Units, ~Description,
-  "packyrs", "1 pack of cigarettes per day for 1 year", "Smoking history",
+  "packyrs", "pack years (1 pack of cigarettes per day for 1 year)", "Smoking history",
   "crt", "mg/dl", "Measure of creatinine in the participant's blood",
-  "male", "0 = female, 1 = male", "Binary Indicator of patient sex",
+  "male", "Binary (0 = female, 1 = male)", "Binary Indicator of patient sex",
   "obstime", "days", "Total time the participant was observed on the study",
   "death", "binary", "Indicator that the participant died during the study"
 )
@@ -68,3 +68,313 @@ var_desc <- tibble::tribble(
 knitr::kable(var_desc, caption = "Variable Descriptions")
 
 ```
+
+
+# (_Q1_) Survival Status and Smoking History
+
+In the first section of this report, we examine the relationship between smoking
+history (measured in pack years), and survival status at five years.
+
+
+## Descriptive Statistics
+
+### (_Q1.a_)
+
+We start by examining the overall distribution of smoking history in our study
+participants. Notice that the most participants have between $0$ and $5$ pack
+years, while at least one participant has over 200 pack years of smoking
+history. This leads to the distribution having a strong **right skew**.
+
+```{r fig.width=6, fig.height=3}
+
+bin_width <- 5
+
+hist_packyrs <- mri %>%
+  dplyr::filter(!is.na(.data$packyrs)) %>%
+  ggplot(aes(x = .data$packyrs)) +
+  geom_histogram(binwidth = bin_width) +
+  labs(
+    title = "Distribution of Smoking History",
+    subtitle = paste("Measured in 'pack years', bin width", bin_width),
+    x = "Smoking History (pack years)"
+  ) +
+  ggthemes::theme_hc()
+
+print(hist_packyrs)
+
+```
+
+### (_Q1.b,c_)
+
+With an idea of the overall distribution of smoking history, we can now break
+our study participants into two groups - those who survived at least five years
+from the date of their MRI, and those who did not survive - and look at the
+descriptive summary statistics of smoking history within for each group.
+
+```{r}
+
+summary_table_packyrs <- mri_surv %>%
+  dplyr::select(.data$packyrs, dplyr::group_cols()) %>%
+  summary_table() %>%
+  dplyr::select(-.data$n, -.data$variable)
+
+
+knitr::kable(
+  summary_table_packyrs,
+  caption = paste("Summary of smoking history distribution",
+                  "(measured in pack years) by vital status group"),
+  digits = 2
+)
+
+```
+
+### (_Q1.d_)
+
+We can also visualize these distributions using box-plots:
+
+```{r fig.width=6, fig.height=2.5, fig.align="center"}
+
+boxplot_packyrs <- mri_surv %>%
+  dplyr::filter(!is.na(.data$packyrs)) %>%
+  ggplot(aes(x = .data$`Survival Status`, y = .data$packyrs)) +
+  geom_boxplot(varwidth = TRUE, outlier.alpha = .3) +
+  coord_flip() +
+  labs(
+    title = "Distribution of Smoking History",
+    subtitle = "Measured in 'pack years', grouped by vital status",
+    x = "Vital Status",
+    y = "Smoking History (pack years)"
+  ) +
+  ggthemes::theme_hc() +
+  theme(
+    panel.grid.major.x = element_line(colour = "#D8D8D8"),
+    panel.grid.major.y = element_blank()
+  )
+
+boxplot_packyrs
+
+```
+
+
+From the box-plots, we see that participants who survived at least five years
+generally had smoked fewer pack years than those who survived fewer than five
+years as indicated by the lower median and $75^{th}$ percentile. Despite these
+differences, both groups have a $25^{th}$ percentile of $0$ pack years.
+
+
+## Inferential Statistics
+
+### (_Q1.e,f_)
+
+Aside from examining the descriptive statistics of the participants, it is also
+useful to explore the population inferential statistics for populations fitting
+the two vital status groups. Below we examine the population point estimate and
+$95\%$ confidence interval.
+
+```{r}
+
+inference_table_packyrs <- mri_surv %>%
+  dplyr::select(.data$packyrs, dplyr::group_cols()) %>%
+  summary_table(summary_funcs = list(
+    "point est." = ~mean(., na.rm = TRUE),
+    "95% CI (lower)" = ~confidence_interval(., .95)["lower"],
+    "95% CI (upper)" = ~confidence_interval(., .95)["upper"]
+  )) %>%
+  dplyr::select(-.data$variable)
+
+knitr::kable(
+  inference_table_packyrs,
+  caption = paste("Population inference of smoking history",
+                  "(measured in 'pack years') by vital status group"),
+  digits = 2
+)
+
+```
+
+
+### (_Q1.g_)
+
+We can also test for significant differences between the two populations defined
+by vital status at five years. One way to do this is by testing the difference
+of two sample means, assuming that we know the population standard deviations
+are known and not necessarily equal. Below we calculate the point estimate and
+$95\%$ confidence interval of the difference in population means under the
+assumption that there is no difference in means.
+
+```{r}
+
+summary_table_diff <- two_sample_ci(mri_surv, packyrs)
+
+knitr::kable(
+  summary_table_diff,
+  caption = paste("Distribution of difference between sample means across",
+                  "vital status group populations for 'pack years'"),
+  digits = 2
+)
+
+```
+
+
+Since the confidence interval does not include $0$, we can say with reasonable
+confidence that there is in fact a significant difference between our two
+populations.
+
+
+### (_Q1.h_)
+
+Another way to explore any potential difference between the two populations is
+to not not assume that we know the population standard deviations while still
+allowing them to vary by population. This design can be captured by a
+_heteroscedastic t-test_, where we define our hypotheses as follows:
+
+ * $H_{0}$: $\mu_{1} = \mu_{2}$ There **is not** a difference in the means
+   between the two populations.
+ * $H_{a}$: $\mu_{1} \neq \mu_{2}$ These **is** a difference in the means
+   between the two populations.
+
+```{r}
+
+summary_table_t_het <- mri_surv %>%
+  t.test(`packyrs`~`Survival Status`, data = .) %>%
+  broom::glance()
+
+pval_thet <- round(summary_table_t_het$p.value, digits = 4)
+
+knitr::kable(
+  summary_table_t_het %>%
+    dplyr::select(
+      `95% CI (lower)` = conf.low,
+      `95% CI (upper)` = conf.high,
+      `p-value` = p.value
+    ),
+  caption = paste("Two-sided heteroscedastic t-test results of smoking history",
+                  "by vital status group"),
+  digits = 3
+)
+
+```
+
+
+The results of this test produce a _p-value_ of **`r pval_thet`**. Since our
+test was at the $\alpha = .05$ level, this result indicates that there is a
+statistically significant difference in the means between the two populations,
+telling us that there is a relationship between smoking history and five-year
+vital status.
+
+
+### (_Q1.i_)
+
+Both the _difference in mean pack years_ and _heteroscedastic t-test_
+inferential tests indicate that there is an association with mean pack years of
+smoking and five-year vital status. This is seen in neither confidence interval
+including zero.
+
+
+### (_Q1.j_)
+
+Using the same set of hypotheses, we can also perform a test for association
+under the assumption that we don't know the population standard deviations, but
+are treated as equal. This _homoscedastic t-test_ produces the following
+results:
+
+```{r}
+
+summary_table_t_hom <- mri_surv %>%
+  t.test(`packyrs`~`Survival Status`, data = ., var.equal = TRUE) %>%
+  broom::glance()
+
+pval_thom <- round(summary_table_t_hom$p.value, digits = 4)
+
+knitr::kable(
+  summary_table_t_hom %>%
+    dplyr::select(
+      `95% CI (lower)` = conf.low,
+      `95% CI (upper)` = conf.high,
+      `p-value` = p.value
+    ),
+  caption = paste("Two-sided homoscedastic t-test results of smoking history",
+                  "by vital status group"),
+  digits = 2
+)
+
+```
+
+The _p-value_ for this test is **`r pval_thom`**, which beats the threshold for
+significance set by our $\alpha$ level of $.05$. This further confirms that there
+is a significant relationship between smoking history and five-year vital status
+in our study population.
+
+
+### (_Q1.k_)
+
+Both the _heteroscedastic_ and _homoscedastic_ _t-tests_ assert that the null
+hypothesis should be rejected, and that there is a statistically significant
+association between smoking history and vital status at five years. _A priori_,
+We should prefer the heteroscedastic t-test, however, since we do not have any
+indication that the variance in the point estimate of the two populations would
+be the same. Assuming that the variances are the same when they in truth aren't
+hurts the validity of our tests.
+
+
+# (_Q2_) Patient Sex and Smoking History
+
+### (_Q2.a_)
+
+
+```{r}
+
+summary_table_diff_sex_packyrs <- mri %>%
+  dplyr::group_by(male) %>%
+  two_sample_ci(packyrs)
+
+knitr::kable(
+  summary_table_diff_sex_packyrs,
+  caption = paste("test"),
+  digits = 2
+)
+
+```
+
+
+
+### (_Q2.b_)
+
+
+
+```{r}
+
+summary_table_t_het_sex_packyrs <- mri_surv %>%
+  t.test(`packyrs`~`male`, data = .) %>%
+  broom::glance()
+
+
+```
+
+
+
+### (_Q2.c_)
+
+
+# (_Q3_) Survival Status and Creatinine Level
+
+### (_Q3.a_)
+
+
+
+```{r}
+
+summary_table_diff_surv_crt <- two_sample_ci(mri_surv, crt)
+
+knitr::kable(
+  summary_table_diff_surv_crt,
+  caption = paste("test"),
+  digits = 2
+)
+```
+
+
+### (_Q3.b_)
+
+
+
+### (_Q3.c_)
