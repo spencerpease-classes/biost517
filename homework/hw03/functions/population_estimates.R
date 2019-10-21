@@ -32,7 +32,7 @@ two_sample_ci <- function(data, test_col = NULL, alpha = .95) {
   # Calculate statistics ----------------------------------------------------
 
   z_score <- qnorm((alpha + 1) / 2)
-  point_est <- abs(mean(split_data[[1]]) - mean(split_data[[2]]))
+  point_est <- mean(split_data[[1]]) - mean(split_data[[2]])
 
   std_deviation <- split_data %>%
     purrr::map(~(var(.) / length(.))) %>%
