@@ -11,60 +11,32 @@ output: pdf_document
 knitr::opts_chunk$set(echo = FALSE)
 options(knitr.kable.NA = '-')
 
-
 # Include libraries
 library(magrittr)
-library(ggplot2)
 
 # Source helper functions
-source("functions/summary_table.R")
 source("functions/population_estimates.R")
 
+```
+
+# _(Q1)_ Creatinine Levels and Survivorship Status
+
+```{r mri-data}
 
 # Load data
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
-  dplyr::select(
-    .data$packyrs, .data$crt, .data$male, .data$obstime, .data$death
+  dplyr::select(.data$crt, .data$obstime) %>%
+  dplyr::transmute(
+    `Survived >5 years` = dplyr::if_else(.data$obstime >= 5 * 365, 1L, 0L),
+    `High CRT` = dplyr::if_else(.data$crt > 1.2, 1L, 0L)
   )
 
-mri_surv <- mri %>%
-  dplyr::mutate(
-    `Survival Status` = dplyr::if_else(
-      .data$obstime >= 5 * 365,
-      "5+ years", "<5 years"
-    )
-  ) %>%
-  dplyr::group_by(.data$`Survival Status`)
-
-
 ```
 
 
-# Overview of the Data
+# _(Q2)_ The ELISA Test
 
-The data in this report comes from a study of the risk factors associated with
-cardiovascular and cerebrovascular disease among generally healthier older
-adults. Specifically, this study enrolled a cohort of older (65+) and generally
-healthy adults by randomly sampling individuals enrolled in the United States
-Medicare system. Overall **`r nrow(mri)`** adults agreed to participate in the
-study.
 
-This report focuses on five variables from the study data. They are briefly
-described below (see the study documentation for more details):
-
-```{r variable-description, fig.cap="Descriptions of relevant variables",}
-
-var_desc <- tibble::tribble(
-  ~Variable, ~Units, ~Description,
-  "packyrs", "pack years (1 pack of cigarettes per day for 1 year)", "Smoking history",
-  "crt", "mg/dl", "Measure of creatinine in the participant's blood",
-  "male", "Binary (0 = female, 1 = male)", "Binary Indicator of patient sex",
-  "obstime", "days", "Total time the participant was observed on the study",
-  "death", "binary", "Indicator that the participant died during the study"
-)
-
-knitr::kable(var_desc, caption = "Variable Descriptions")
-
-```
+# _(Q3)_ A Biased Coin
