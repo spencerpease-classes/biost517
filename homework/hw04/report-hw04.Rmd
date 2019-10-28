@@ -22,6 +22,12 @@ source("functions/diagnostic_tests.R")
 
 # _(Q1)_ Creatinine Levels and Survivorship Status
 
+One way we can examine data from the MRI data set is by dichotomizing variable
+to see the size of different category pairings. In this question we will look at
+two such variables: _5-year vital status_ (did the patient live longer than
+five years after their MRI date) and _high creatinine level_ (is the patient's
+creatinine level **above** $1.2 \frac{mg}{dl}$).
+
 ```{r mri-data}
 
 # Load data
@@ -40,6 +46,9 @@ mri <-
 
 ## _(Q1.a)_
 
+To better compare the different categories created by the mixing of these two
+variables, we create a contingency table:
+
 ```{r mri-contingency-table}
 
 mri %>%
@@ -56,6 +65,12 @@ mri %>%
 
 
 ## _(Q1.b-e)_
+
+If we want to look closer at the relationship between survival status and
+high creatinine level, we can use inferential statistics to make estimates about
+different groups within our population. For each grouping condition below, we
+look at the point estimate of the mean, standard error, and $95\%$ confidence
+interval.
 
 ```{r mri-prob-estimates}
 
@@ -101,20 +116,32 @@ npv <- gen_npv(sens = .99, spec = .96, prev = .01)
 
 ```
 
-For the population of people who donate blood:
+For a test with $99\%$ sensitivity and $96\%$ specificity, in a population of
+people donating blood with a prevalence of HIV-infection at $1\%$, the 
+predictive values of the test are:
 
- * Positive predictive value: **`r round(ppv, digits = 2)`**
- * Negative predictive value: **`r round(npv, digits = 5)`**
+ * Positive predictive value: **`r round(ppv, 2)`**
+ * Negative predictive value: $1 - (1 \times 10^{-4})$
 
 
 ## _(Q2.c)_
 
-TODO
+Even though the test may have a specificity of _"only $96\%$"_, it is important
+to consider what this means in the context of the population in which the test
+is being used. In this case, the prevalence of HIV is $1\%$, which means the
+test will only be wrong $4\%$ of the time for this small fraction of the
+population. Overall, this means very few individuals with HIV will test negative
+when donating blood.
 
 
 ## _(Q2.d)_
 
-TODO
+For a test used to keep HIV out of the blood supply of blood banks, it is more
+important to have a high specificity. In the scheme of things, rejecting someone
+from donating because they falsely test positive for HIV is far less 
+consequential than accepting someone who falsely tests negative. For this reason,
+it is more important to have confidence in the test when it produces negative
+results, which is captured in the specificity of the test.
 
 
 ## _(Q2.e)_
@@ -126,10 +153,12 @@ npv2 <- gen_npv(sens = .99, spec = .96, prev = .16)
 
 ```
 
-For the population of a clinic with a large number of intravenous drug users:
+For the same test used in a clinic with a high number of intravenous drug users 
+where the prevalence of HIV-infection is now $16\%$, the predictive values of 
+the test are:
 
- * Positive predictive value: **`r round(ppv2, digits = 2)`**
- * Negative predictive value: **`r round(npv2, digits = 5)`**
+ * Positive predictive value: **`r round(ppv2, 2)`**
+ * Negative predictive value: **`r round(npv2, 3)`**
 
 
 ## _(Q2.f)_
@@ -141,10 +170,11 @@ npv3 <- gen_npv(sens = .99, spec = .96, prev = .0001)
 
 ```
 
-For the population of students entering college:
+Finally, for the same test in a population of students entering college where 
+the HIV-infection prevalence is $.01\%$, the predictive values of the test are:
 
- * Positive predictive value: **`r ppv3`**
- * Negative predictive value: **`r npv3`**
+ * Positive predictive value: **`r round(ppv3, 3)`**
+ * Negative predictive value: $1 - (1 \times 10^{-5})$
 
 
 # _(Q3)_ A Biased Coin
@@ -164,7 +194,7 @@ q3_answers <- list(
 
 ```
 
- a) $X=1$ and $Y=1$: `r round(q3_answers$a, 5)`
- b) $Y \geq 3$: `r round(q3_answers$b, 3)`
- c) $X=1$ given $Y=1$: `r q3_answers$c`
- d) $E(Y)$: `r q3_answers$d`
+ a) $X=1$ and $Y=1$: $9.75 \times 10^{-3}$
+ b) $Y \geq 3$: **`r round(q3_answers$b, 3)`**
+ c) $X=1$ given $Y=1$: **`r q3_answers$c`**
+ d) $E(Y)$: **`r q3_answers$d`**
