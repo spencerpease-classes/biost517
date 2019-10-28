@@ -56,3 +56,16 @@ two_sample_ci <- function(data, test_col = NULL, alpha = .95) {
   )
 
 }
+
+
+se_prop <- function(p, n) sqrt( p * (1 - p) / n )
+
+ci_prop <- function(p, n, alpha = .95) {
+
+  z_score <- qnorm((alpha + 1) / 2)
+  se <- se_prop(p, n)
+  margin_of_error <- z_score * se
+
+  list("lower" = p - margin_of_error, "upper" = p + margin_of_error)
+
+}
