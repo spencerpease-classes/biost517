@@ -16,6 +16,7 @@ library(magrittr)
 
 # Source helper functions
 source("functions/population_estimates.R")
+source("functions/diagnostic_tests.R")
 
 ```
 
@@ -28,9 +29,62 @@ mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
   dplyr::select(.data$crt, .data$obstime) %>%
+  dplyr::filter(!is.na(.data$crt)) %>%
   dplyr::transmute(
-    `Survived >5 years` = dplyr::if_else(.data$obstime >= 5 * 365, 1L, 0L),
-    `High CRT` = dplyr::if_else(.data$crt > 1.2, 1L, 0L)
+    `Surv. 5+ years` = dplyr::if_else(.data$obstime >= 5 * 365, 1, 0),
+    `High CRT` = dplyr::if_else(.data$crt > 1.2, 1, 0)
+  )
+
+```
+
+
+## _(Q1.a)_
+
+```{r mri-contingency-table}
+
+mri %>%
+  xtabs(~`Surv. 5+ years` + `High CRT`, data = .) %>%
+  magrittr::set_rownames(c("Died w/in 5 years", "Surv. 5+ years")) %>%
+  magrittr::set_colnames(c("Non-high CRT", "High CRT")) %>%
+  knitr::kable(
+    caption = paste(
+      "Contingency table for each pairing of the dichotomous variables",
+      "'Survival Status' and 'CRT Level'.")
+    )
+
+```
+
+
+## _(Q1.b-e)_
+
+```{r mri-prob-estimates}
+
+mri_probs <- mri %>%
+  dplyr::group_by(.data$`Surv. 5+ years`, .data$`High CRT`) %>%
+  dplyr::summarise(count = dplyr::n(), prob = dplyr::n() / nrow(mri))
+
+pr <- mri_probs$prob
+
+mri_inf_table <-
+  tibble::tribble(
+    ~Condition, ~`Point est.`,
+    "Survive 5+ years", sum(pr[3:4]),
+    "Low CRT level", sum(pr[c(1, 3)]),
+    "Low CRT level, given survival of <5 years", pr[1] / sum(pr[1:2]),
+    "Survive 5+ years, given high CRT level", pr[4] / sum(pr[c(2, 4)])
+  ) %>%
+  dplyr::mutate(
+    `Std. error` =  se_prop(.data$`Point est.`, nrow(mri)),
+    `95% CI (lower)` = ci_prop(.data$`Point est.`, nrow(mri))[["lower"]],
+    `95% CI (upper)` = ci_prop(.data$`Point est.`, nrow(mri))[["upper"]]
+  )
+
+knitr::kable(
+  mri_inf_table,
+  digits = 2,
+  caption = paste(
+    "Summary of the point estimate, standard error, and 95% confidence",
+    "interval of the population probability, for various conditions.")
   )
 
 ```
@@ -38,5 +92,79 @@ mri <-
 
 # _(Q2)_ The ELISA Test
 
+## _(Q2.a,b)_
+
+```{r}
+
+ppv <- gen_ppv(sens = .99, spec = .96, prev = .01)
+npv <- gen_npv(sens = .99, spec = .96, prev = .01)
+
+```
+
+For the population of people who donate blood:
+
+ * Positive predictive value: **`r round(ppv, digits = 2)`**
+ * Negative predictive value: **`r round(npv, digits = 5)`**
+
+
+## _(Q2.c)_
+
+TODO
+
+
+## _(Q2.d)_
+
+TODO
+
+
+## _(Q2.e)_
+
+```{r}
+
+ppv2 <- gen_ppv(sens = .99, spec = .96, prev = .16)
+npv2 <- gen_npv(sens = .99, spec = .96, prev = .16)
+
+```
+
+For the population of a clinic with a large number of intravenous drug users:
+
+ * Positive predictive value: **`r round(ppv2, digits = 2)`**
+ * Negative predictive value: **`r round(npv2, digits = 5)`**
+
+
+## _(Q2.f)_
+
+```{r}
+
+ppv3 <- gen_ppv(sens = .99, spec = .96, prev = .0001)
+npv3 <- gen_npv(sens = .99, spec = .96, prev = .0001)
+
+```
+
+For the population of students entering college:
+
+ * Positive predictive value: **`r ppv3`**
+ * Negative predictive value: **`r npv3`**
+
 
 # _(Q3)_ A Biased Coin
+
+```{r}
+
+prob_h <- .65
+prob_t <- .35
+tosses <- 5
+
+q3_answers <- list(
+  "a" = prob_h * prob_t^4,
+  "b" = sum(dbinom(3:5, size = tosses, prob = prob_h)),
+  "c" = 1 / 5,
+  "d" = prob_h * tosses
+)
+
+```
+
+ a) $X=1$ and $Y=1$: `r round(q3_answers$a, 5)`
+ b) $Y \geq 3$: `r round(q3_answers$b, 3)`
+ c) $X=1$ given $Y=1$: `r q3_answers$c`
+ d) $E(Y)$: `r q3_answers$d`
