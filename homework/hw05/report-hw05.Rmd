@@ -17,6 +17,9 @@ options(knitr.kable.NA = '-')
 library(magrittr)
 library(kableExtra)
 
+# Helper functions
+source("functions/output_mri_table.R")
+
 # Prepare data
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
