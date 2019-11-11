@@ -1,0 +1,30 @@
+---
+title: "Homework 05"
+author: "Spencer Pease"
+date: "11/11/2019"
+output:
+  pdf_document:
+    template: default.latex
+---
+
+```{r setup, include=FALSE}
+
+# Set output options
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '-')
+
+# Include libraries
+library(magrittr)
+library(kableExtra)
+
+# Prepare data
+mri <-
+  read.table("data/mri.txt", header = TRUE) %>%
+  dplyr::as_tibble() %>%
+  dplyr::filter(!is.na(.data$crt)) %>%
+  dplyr::transmute(
+    surv_5yr = dplyr::if_else(.data$obstime >= 5 * 365.25, 1, 0),
+    high_crt = dplyr::if_else(.data$crt > 1.2, 1, 0)
+  )
+
+```
