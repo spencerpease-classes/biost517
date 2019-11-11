@@ -31,3 +31,33 @@ mri <-
   )
 
 ```
+
+
+# _(Q1)_ Prospective Association Analysis
+
+```{r contingency-table-count}
+
+mri_table <- xtabs(~surv_5yr + high_crt, data = mri)
+
+# tmp <- prop.table(mri_table, 2) %>% addmargins()
+
+output_mri_table(
+  mri_table,
+  "Contingency table for creatinine level and survival status."
+)
+
+```
+
+```{r contingency-table-prob}
+
+mri_prob_by_crt <- addmargins(prop.table(mri_table, 2))
+
+
+```
+
+
+# _(Q2)_ Retrospective Association Analysis
+
+
+
+# _(Q3)_ Risk of Death
