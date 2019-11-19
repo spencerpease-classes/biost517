@@ -1,0 +1,40 @@
+---
+title: "Homework 06"
+author: "Spencer Pease"
+date: "11/20/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+# Set output options
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '-')
+
+# Include libraries
+library(magrittr)
+
+# Helper functions
+
+
+# Prepare data
+mri <-
+  read.table("data/mri.txt", header = TRUE) %>%
+  dplyr::as_tibble() %>%
+  dplyr::select(race, diabetes, crt, obstime, death) %>% 
+  dplyr::filter(!is.na(.data$crt)) %>%
+  dplyr::mutate(
+    race = factor(race, labels = c("white", "black", "Asian", "other")),
+    surv_5yr = dplyr::if_else(.data$obstime >= 5 * 365.25, 1, 0),
+  )
+
+```
+
+
+# _(Q1)_ Diabetes and Race
+
+
+# _(Q2)_ Creatinine Level and 5-Year All-Cause Mortality
+
+
+# _(Q3)_ Creatinine Level and Age
