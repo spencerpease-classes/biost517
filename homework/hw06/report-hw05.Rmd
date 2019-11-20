@@ -13,6 +13,8 @@ options(knitr.kable.NA = '-')
 
 # Include libraries
 library(magrittr)
+library(dplyr)
+library(ggplot2)
 
 # Helper functions
 
@@ -21,20 +23,312 @@ library(magrittr)
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
-  dplyr::select(race, diabetes, crt, obstime, death) %>% 
-  dplyr::filter(!is.na(.data$crt)) %>%
-  dplyr::mutate(
-    race = factor(race, labels = c("white", "black", "Asian", "other")),
-    surv_5yr = dplyr::if_else(.data$obstime >= 5 * 365.25, 1, 0),
-  )
+  dplyr::select(race, age, diabetes, crt, obstime, death)
 
 ```
 
 
 # _(Q1)_ Diabetes and Race
 
+```{r}
+
+mri_dr <- mri %>%
+  dplyr::filter(race != 4) %>%
+  dplyr::transmute(
+    Race = factor(race, labels = c("white", "black", "Asian")),
+    Diabetes = factor(diabetes, labels = c("Non-diabetic", "Diabetic"))
+  )
+
+```
+
+## _(Q1.a)_
+
+```{r}
+
+dr_tbl <- xtabs(~Race + Diabetes, data = mri_dr)
+
+knitr::kable(
+  dr_tbl,
+  booktabs = TRUE,
+  caption = "Presence of diabetes by self-reported race"
+)
+
+```
+
+
+## _(Q1.b)_
+
+ * $H_{0}$: There is no significant association between the the occurrence of
+   diabetes and racial groups.
+ * $H_{a}$: There is an association between the occurrence of diabetes and
+   racial groups.
+
+
+## _(Q1.c)_
+
+```{r}
+
+dr_test <- chisq.test(dr_tbl)
+dr_expected_tbl <- dr_test$expected
+
+dr_pval <- dr_test$p.value
+
+knitr::kable(
+  dr_expected_tbl,
+  booktabs = TRUE,
+  digits = 2,
+  caption = "Expected cell counts of (1a) under the null hypothesis"
+)
+
+
+```
+
+## _(Q1.d)_
+
+The Pearson $\chi^{2}$-Square test is appropriate for testing if the observed
+counts are significantly different form the expected cell counts under the null
+hypothesis.
+
+The distribution of the test statistic under the null hypothesis is equal to the
+distribution of the sum of `r dr_test$parameter[["df"]]` (from the degrees of
+freedom) random samples from a normal distribution squared.
+
+
+## _(Q1.e)_
+
+Full inference p-value of `r round(dr_pval, 3)`
+
+This difference between the expected cell counts under the null hypothesis
+indicates that there is a significant difference between the
+observed and expected cell counts, leading us to reject the null hypothesis that
+there is no association between the occurrence of diabetes and racial group.
+
 
 # _(Q2)_ Creatinine Level and 5-Year All-Cause Mortality
 
+```{r}
+
+mri_cs <- mri %>%
+  dplyr::filter(!is.na(crt)) %>%
+  dplyr::mutate(
+    surv_5yr = dplyr::if_else(obstime >= 5 * 365.25, 1L, 0L),
+    died_5yr = 1 - surv_5yr
+  ) %>%
+  dplyr::select(crt, surv_5yr, died_5yr)
+
+
+```
+
+## _(Q2.a)_
+
+```{r}
+
+surv_a_lm <- lm(crt ~ died_5yr, data = mri_cs)
+surv_b_lm <- lm(crt ~ surv_5yr, data = mri_cs)
+
+surv_a_tidy <- broom::tidy(surv_a_lm)
+surv_b_tidy <- broom::tidy(surv_b_lm)
+
+surv_a_ci <- confint.default(surv_a_lm)
+surv_b_ci <- confint.default(surv_b_lm)
+
+```
+
+Both models _A_ and _B_ are saturated since their predictor variable has the
+same number of groupings (survived 5+ years, died within 5 years) as the
+regression model has parameters ($\beta_{0}$, $\beta_{1}$). Or, put another way,
+each group can be fit exactly with the model - information does not need to be
+borrowed from across groups.
+
+
+## _(Q2.b)_
+
+Models _A_ and _B_ show the same relationship, but in "opposite" directions. In
+both models, the slope $\beta_{1}$ is the difference between population group
+means and therefore has the same magnitude, differing only in sign depending
+on which direction the difference is taken. This also means, since each model
+parameter represents the estimated population mean of predictor group,
+$\beta_{0}^{A} + \beta_{1}^{A} = \beta_{0}^{B}$ and
+$\beta_{0}^{B} + \beta_{1}^{B} = \beta_{0}^{A}$.
+
+Finally, since the models are equivalent ways of fitting the same data, the
+test statistic, standard error, and _P_-value are the same for the slope.
+
+
+## _(Q2.c,d)_
+
+_(Questions Q2 c and d use model A in the calculations)_
+
+For a population of subjects who survive at least 5 years:
+
+ * Estimate of the mean creatinine: **`r round(surv_a_tidy[[1, 2]], 3)`**
+ * $95\%$ confidence interval: **(`r round(surv_a_ci[1, ], 3)`)**
+
+
+## _(Q2.e,f)_
+
+_(Questions Q2 e and f use model B in the calculations)_
+
+For a population of subjects who die within 5 years:
+
+ * Estimate of the mean creatinine: **`r round(surv_b_tidy[[1, 2]], 3)`**
+ * $95\%$ confidence interval: **(`r round(surv_b_ci[1, ], 3)`)**
+
+
+## _(Q2.g)_
+
+
+
+
+## _(Q2.h)_
+
 
 # _(Q3)_ Creatinine Level and Age
+
+```{r}
+
+mri_ca <- mri %>% filter(!is.na(crt)) %>% select(crt, age)
+
+```
+
+
+## _(Q3.a)_
+
+```{r}
+
+ca_lm <- lm(crt ~ age, data = mri_ca)
+
+ca_b0 <- ca_lm$coefficients[[1]]
+ca_b1 <- ca_lm$coefficients[[2]]
+
+```
+
+The statistical model used to determine the association between serum creatinine
+level and age fit the formula:
+
+$$ E(crt | age) = \beta_{0} + \beta_{1} \cdot age $$
+
+With:
+
+ * $\beta_{0} =$ `r round(ca_b0, 3)`
+ * $\beta_{1} =$ `r round(ca_b1, 3)`
+
+## _(Q3.b)_
+
+```{r}
+
+ca_plot <- ggplot(mri_ca, aes(x = age, y = crt)) +
+  geom_point(size = 2) +
+  theme_bw() +
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, color = "maroon") +
+  labs(
+    title = "Serum Creatinine Level vs Age",
+    x = "Age (years)",
+    y = "Serum Creatinine Level (mg/dl)"
+  ) +
+  theme(text = element_text(family = "serif"))
+
+ca_plot
+
+```
+
+
+## _(Q3.c,d)_
+
+```{r}
+
+ca_pred <- predict(ca_lm, data.frame(age = c(72, 82, 99)))
+
+```
+
+
+ * The estimated mean serum creatinine level among a population of
+   **72-year-old** subjects is: **`r round(ca_pred[[1]], 3)`**.
+ * The estimated mean serum creatinine level among a population of
+   **82-year-old** subjects is: **`r round(ca_pred[[2]], 3)`**.
+
+Since we fit the relationship between serum creatinine level and age to a linear
+model, the the difference in estimated mean between these two groups divided
+by the difference in age between these groups is the slope of the model.
+
+
+## _(Q3.e)_
+
+ * The estimated mean serum creatinine level among a population of
+   **99-year-old** subjects is: **`r round(ca_pred[[3]], 3)`**.
+
+Since there is sparse data around the 99 year age group (only a single
+observation each at 99, 95, 94, and 92 years) the linear model will borrow
+information more heavily from other age groups, which may not be indicative of
+the actual mean value in the 99 year age group. Therefore, this estimate is not
+a reliable estimate of the mean creatinine level in a population of 99-year-old
+subjects.
+
+
+## _(Q3.f)_
+
+In this model, we interpret the intercept as the mean creatinine level in a
+population of 0-year-old subjects. Scientifically, this is a meaningless
+interpretation since we fit a linear model on data for 65+ year-olds. The
+intercept value is then only an artifact of the model.
+
+
+## _(Q3.g)_
+
+The slope of this model is interpreted as the difference in mean creatinine
+level between two populations differing in age by a single year (one unit of the
+prediction variable). This has a meaningful scientific interpretation, as we can
+use this value to assess if there is a true difference in the mean response
+between two groups.
+
+
+## _(Q3.h)_
+
+```{r}
+
+ca_ci <- confint.default(ca_lm)[2, ]
+
+ca_inf_tbl <- broom::tidy(ca_lm)[2, ] %>%
+  select(Estimate = estimate, `p-value` = p.value) %>%
+  bind_cols(as_tibble(t(ca_ci)))
+
+ca_pval <-ca_inf_tbl %>% pull("p-value")
+
+knitr::kable(
+  ca_inf_tbl,
+  booktabs = TRUE,
+  digits = 3,
+  caption = "Inference table for the association between creatinine level and age"
+)
+
+
+```
+
+
+For the linear regression analysis of age and serum creatinine level, we
+estimate that for each year difference in age, there is a mean difference in
+creatinine level of `r round(ca_b1, 3)` $\frac{mg}{dl}$. With $95\%$ confidence
+we expect the true mean difference per year age to fall between
+`r round(ca_ci[[1]], 3)` and `r round(ca_ci[[2]], 3)` $\frac{mg}{dl}$. Since the
+two-sided _P_-value is `r round(ca_pval, 3)`, we reject a null hypothesis that
+there is no true linear relationship between mean creatinine level across age
+groups.
+
+
+## _(Q3.i)_
+
+For differences in mean creatinine level across groups that differ by 5 years
+in age, the $95\%$ confidence interval is:
+
+```{r}
+
+knitr::kable(
+  t(5 * ca_ci),
+  booktabs = TRUE,
+  digits = 3,
+  caption = "95% CI for mean creatinine level across groups differing by 5 years in age"
+)
+
+```
+
+
