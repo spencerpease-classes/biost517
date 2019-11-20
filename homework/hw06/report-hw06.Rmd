@@ -60,8 +60,8 @@ knitr::kable(
 
  * $H_{0}$: There is no significant association between the the occurrence of
    diabetes and racial groups.
- * $H_{a}$: There is an association between the occurrence of diabetes and
-   racial groups.
+ * $H_{a}$: There is a significant association between the occurrence of
+   diabetes and racial groups.
 
 
 ## _(Q1.c)_
@@ -70,8 +70,6 @@ knitr::kable(
 
 dr_test <- chisq.test(dr_tbl)
 dr_expected_tbl <- dr_test$expected
-
-dr_pval <- dr_test$p.value
 
 knitr::kable(
   dr_expected_tbl,
@@ -96,12 +94,20 @@ freedom) random samples from a normal distribution squared.
 
 ## _(Q1.e)_
 
-Full inference p-value of `r round(dr_pval, 3)`
+```{r}
 
-This difference between the expected cell counts under the null hypothesis
-indicates that there is a significant difference between the
-observed and expected cell counts, leading us to reject the null hypothesis that
-there is no association between the occurrence of diabetes and racial group.
+dr_pval <- dr_test$p.value
+dr_xsq <- dr_test$statistic
+
+```
+
+Using a $\chi^{2}$-Square test to see if there is a significant difference
+between the observed cell counts of presence of diabetes among individuals in
+different racial groups and expected cell counts under the null hypothesis
+produces a test statistics of `r round(dr_xsq, 3)`. Given the test statistic
+is greater that $0$ and has an associated _P_-value of `r round(dr_pval, 3)`
+(_< .05_), we reject the null hypothesis that there is no significant
+association between diabetes and different racial groups.
 
 
 # _(Q2)_ Creatinine Level and 5-Year All-Cause Mortality
@@ -177,10 +183,38 @@ For a population of subjects who die within 5 years:
 
 ## _(Q2.g)_
 
-
+In model _A_, the intercept represents the estimated population mean creatinine
+level of individuals who survived at least $5$ years. The slope of model _A_
+represents the estimated difference in population means between the population
+of individuals who dies within $5$ years and the population which survived at
+least $5$ years.
 
 
 ## _(Q2.h)_
+
+```{r}
+
+surv_inf_tbl <- surv_b_tidy[2, ] %>%
+  select(`Point est.` = estimate, `Std. error` = std.error, `P-val` = p.value) %>%
+  bind_cols(as_tibble(t(surv_b_ci[2, ]))) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^9, 2), "e-9"))
+
+knitr::kable(
+  surv_inf_tbl,
+  booktabs = TRUE,
+  digits = 3,
+  caption = paste("Inference table for the difference in mean creatinine level",
+                  "between a population that survived 5+ years, and a",
+                  "population that died within 5 years"
+                  )
+)
+
+```
+
+From looking at our $95\%$ confidence interval (which doesn't include $0$) and
+our _P_-value (which is _< .05_), we can conclude that there is a statistically
+significant association between mean creatinine level and survivorship status
+at 5 years.
 
 
 # _(Q3)_ Creatinine Level and Age
