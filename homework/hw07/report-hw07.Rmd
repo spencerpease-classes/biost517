@@ -1,0 +1,53 @@
+---
+title: "Homework 07"
+author: "Spencer Pease"
+date: "11/27/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+# Set output options
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '-')
+
+# Include libraries
+library(uwIntroStats)
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+
+# Helper functions
+
+
+# Prepare data
+mri <-
+  read.table("data/mri.txt", header = TRUE) %>%
+  dplyr::as_tibble() %>%
+  dplyr::select(age, crt, obstime, death) %>% 
+  dplyr::filter(!is.na(crt)) %>%
+  dplyr::mutate(surv_5yr = dplyr::if_else(obstime >= 5 * 365.25, 1L, 0L))
+
+```
+
+
+# _(Q1)_ Serum Creatinine Level and 5-Year All-Cause Mortality
+
+## _(Q1.a)_
+## _(Q1.b)_
+## _(Q1.c)_
+## _(Q1.d)_
+## _(Q1.e)_
+## _(Q1.f)_
+
+
+# _(Q2)_ Serum Creatinine Level and Age
+
+## _(Q2.a)_
+## _(Q2.b)_
+## _(Q2.c)_
+## _(Q2.d)_
+## _(Q2.e)_
+## _(Q2.f)_
+## _(Q2.g)_
+## _(Q2.h)_
