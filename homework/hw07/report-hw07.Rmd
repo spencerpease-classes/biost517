@@ -24,9 +24,12 @@ library(ggplot2)
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
-  dplyr::select(age, crt, obstime, death) %>% 
+  dplyr::select(age, crt, obstime) %>%
   dplyr::filter(!is.na(crt)) %>%
-  dplyr::mutate(surv_5yr = dplyr::if_else(obstime >= 5 * 365.25, 1L, 0L))
+  dplyr::mutate(
+    surv_5yr = dplyr::if_else(obstime >= 5 * 365.25, 1L, 0L),
+    ln_crt = log(crt)
+  )
 
 ```
 
@@ -34,6 +37,16 @@ mri <-
 # _(Q1)_ Serum Creatinine Level and 5-Year All-Cause Mortality
 
 ## _(Q1.a)_
+
+```{r}
+
+lm_surv <- lm(ln_crt ~ surv_5yr, data = mri)
+lm_surv2 <- regress("geometric", crt ~ surv_5yr, data = mri)
+
+```
+
+
+
 ## _(Q1.b)_
 ## _(Q1.c)_
 ## _(Q1.d)_
@@ -44,10 +57,45 @@ mri <-
 # _(Q2)_ Serum Creatinine Level and Age
 
 ## _(Q2.a)_
+
+```{r}
+
+p_scatter <- ggplot(mri, aes(x = age, y = ln_crt)) +
+  geom_point(size = 2) +
+  theme_bw() +
+  geom_smooth(method = "lm", se = FALSE, size = 1.5, color = "maroon") +
+  labs(
+    title = "Log(Serum Creatinine Level) vs Age",
+    x = "Age (years)",
+    y = "Log(Serum Creatinine Level)"
+  ) +
+  theme(text = element_text(family = "serif"))
+
+p_scatter
+
+```
+
+
 ## _(Q2.b)_
+
+```{r}
+
+lm_age <- regress("geometric", crt ~ age, data = mri)
+
+```
+
+
 ## _(Q2.c)_
 ## _(Q2.d)_
+
+
 ## _(Q2.e)_
+
+```{r}
+# predict(lm_age)
+```
+
+
 ## _(Q2.f)_
 ## _(Q2.g)_
 ## _(Q2.h)_
