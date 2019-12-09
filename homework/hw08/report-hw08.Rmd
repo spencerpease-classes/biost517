@@ -161,10 +161,13 @@ knitr::kable(
 
 
 If our original model instead used an indicator of **low** serum creatinine
-level as the predictor,
+level as the predictor, the statistical evidence for an association would not
+change, since changing the crt indicator will only change the sign of the slope,
+not the magnitude.
 
 If our original model instead used an indicator of **surviving at least 5 years**
-as the response variable,
+as the response variable, the statistical evidence for an association would not
+change, only the starting point of the intercept and the direction of the slope.
 
 
 # _(Q2)_ (OR) Response: High Serum Creatinine Level; Predictor: 5-Year mortality
@@ -237,19 +240,32 @@ knitr::kable(
 
 ```
 
-
+From logistics regression analysis, we estimate that for two groups that differ
+by binary indicator of five-year all-cause mortality, the odds of having high
+serum creatinine level ($crt > 1.2 \frac{mg}{dl}$) are `r round(HvD_inf[1, 1], 2)`
+times larger in the group that died within five years than the group that
+survived at least five years. A $95\%$ confidence interval suggests this
+observation is not unusual if the true odds ratio is anywhere from
+`r round(HvD_inf[1, 2], 2)` to `r round(HvD_inf[1, 3], 2)`. Since this interval
+does not include $1$ and our two-sided _P_-value is much less than $.05$, we have
+sufficient confidence to reject the null hypothesis that there is no association
+between binary indicator of serum creatinine level and five-year mortality.
 
 
 ## _(Q2.e)_
 
-
+Both this retrospective analysis and the prospective analysis from _(Q1)_
+produce the same estimate of the odds ratio, as well as the confidence
+interval and _P_-value of that estimate. This is because both models are testing
+for association between the same two indicators, with only the response and
+predictor labels swapped.
 
 
 # _(Q3)_ (RD) Response: 5-Year mortality; Predictor: High Serum Creatinine Level
 
 This question asks us to assess the association between 5-year mortality and
-serum creatinine level using the risk difference (RD). Since our response is
-binary (_death_), we can use a linear model like:
+serum creatinine level via a risk difference (RD) contrast. Since our response
+is binary (_death_), we can use a linear model like:
 
 $$ E[death_{i} | crt_{Hi}] = \beta_{0} + \beta_{1} \cdot death_{i}$$
 
@@ -295,7 +311,17 @@ knitr::kable(
 )
 ```
 
-
+From a linear regression analysis of five-year all-cause mortality indicator
+and high serum creatinine level ($crt > 1.2 \frac{mg}{dl}$) indicator, using
+Huber-White estimates of the standard error, we find that the estimated risk
+difference in probability of death between the population of individuals with
+high creatinine level and those without is `r round(rd_inf[1, 1])`. A $95\%$
+confidence interval suggests this estimate is not unusual if the true risk
+difference is anywhere from `r round(rd_inf[1, 2])` to `r round(rd_inf[1, 3])`.
+Because this interval does not include $0$, and since the _P_-value for this
+estimate is much less than $.05$, we can reject the null hypothesis that there
+is no association between high serum creatinine level indicator and five-year
+mortality with confidence.
 
 
 # _(Q4)_
@@ -313,15 +339,42 @@ DvC_coef <- DvC_mdl$coefficients[, 1]
  - Slope $\beta_{1} =$ `r round(DvC_coef[2], 2)`
 
 Here, the exponentiated intercept is interpreted as the odds of death within
-five years for the subset of the population that does not have a high serum
-creatinine levels.
+five years for the subset of the population that has a mean serum creatinine
+level of $0$. This is not useful scientifically, as we never observed an
+individual with level of less than $.05$.
 
-The exponentiated slope is interpreted as odds ratio of death within five years
-between the subset of the population that has high creatinine levels and the
-subset that doesn't have high creatinine levels.
+The exponentiated slope is interpreted as the ratio of the odds of death between
+two subsets of the population differing by one unit of mean creatinine level.
+Scientifically, this is a useful value, because it allows us to test for
+difference between two subsets of the population.
 
 ### _(Q4.a.ii)_
 
+```{r}
+DvC_inf <- DvC_mdl$transformed %>%
+  as_tibble() %>%
+  select(-`F stat`, -`df`) %>%
+  magrittr::set_colnames(c("Estimate", "2.5%", "97.5%", "P-val")) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^5, 2), "e-5")) %>%
+  slice(2)
+
+knitr::kable(
+  DvC_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Statistical inference of the OR relationship between ",
+                  "creatinine level and binary indicator of death")
+)
+```
+
+From logistic regression analysis, we estimate that for two groups differing
+in mean serum creatinine level by one unit ($1 \frac{mg}{dl}$), the odds of
+death within five years increases by `r round(DvC_inf[1, 1], 2)` times. A $95\%$
+confidence interval suggests this observation is not unusual if the true odds
+ratio is anywhere from `r round(DvC_inf[1, 2], 2)` to `r round(DvC_inf[1, 3], 2)`.
+Since this interval does not include $1$, and the two-sided _P_-value for this
+estimate is less than $.05$, we can, with confidence, reject the null hypothesis
+that there is no association between serum creatinine level and five-year mortality.
 
 ## _(Q4.b)_
 
@@ -337,15 +390,49 @@ rdC_coef <- rdC_mdl$coefficients[, 1]
 
 Here, the intercept is interpreted as the estimated mean proportion of death
 within five years for the subset of the population with a mean serum creatinine
-level of $0 \frac{mg}{dl}$.
+level of $0 \frac{mg}{dl}$. Again, this is not scientifically useful, as there
+are no observed individuals with a measured creatinine level of less than $.05$.
 
 The slope is interpreted as the estimated difference in mean probability of
 death within five years between the two population subsets that differ by
-$1 \frac{mg}{dl}$ of mean serum creatinine levels.
+$1 \frac{mg}{dl}$ of mean serum creatinine level. This does have scientific
+value, as it lets us estimate differences across groups within our population.
 
 
 ### _(Q4.b.ii)_
+
+
+
 ### _(Q4.b.iii)_
+
+```{r}
+rdC_inf <- rdC_mdl$coefficients %>%
+  as_tibble() %>%
+  select(Estimate, `95%L`, `95%H`, `Pr(>|t|)`) %>%
+  magrittr::set_colnames(c("Estimate", "2.5%", "97.5%", "P-val")) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^9, 2), "e-9")) %>%
+  slice(2)
+
+knitr::kable(
+  rdC_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Statistical inference of the RD relationship between ",
+                  "creatinine level and binary indicator of death")
+)
+```
+
+From a linear regression analysis of five-year all-cause mortality and and
+serum creatinine level, using Huber-White estimates of the standard error, we
+find the estimated risk difference in probability of death between between two
+groups differing by one unit of mean serum level ($1 \frac{mg}{dl}$) increases
+by `r round(rdC_inf[1, 1], 2)`. A $95\%$ confidence interval suggest this
+estimate is not unusual if the true risk difference is in the range
+`r round(rdC_inf[1, 2], 2)` to  `r round(rdC_inf[1, 3], 2)`. $1$ not being
+included in this interval and a two-sided _P_-value less than $.05$ suggest we
+can with high confidence reject the null hypothesis that there is no association
+between serum creatinine level and five-year mortality.
+
 
 ## _(Q4.c)_
 
@@ -396,11 +483,33 @@ km_plot
 
 ## _(Q5.b)_
 
-
+The high creatinine level indicator curve decays faster than the low indicator,
+though both decay at independent steady rates until about 1500 days, at which
+point both decays increase.
 
 ## _(Q5.c)_
 
 ```{r}
 km_fit <- survdiff(surv_obj ~ high_crt, data = mri)
+
+km_inf <-
+  tibble(
+    `crt Indicator` = c("Low", "High"),
+    `N obs` = km_fit$obs,
+    `Observed` = km_fit$obs,
+    `Expected` = km_fit$exp
+  )
+
+knitr::kable(
+  km_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Association of time-to-death and serum creatinine level")
+)
 ```
 
+From the Kaplan-Meier survival estimates of time-to-death and high serum
+creatinine level indicator,  the _P_-value of $9e-6$ and $\chi^{2}$ value of
+`r round(km_fit$chisq, 2)` suggest that we can reject the null hypothesis that
+there is no association between survival time and high serum creatinine level
+indicator.
