@@ -16,6 +16,8 @@ library(uwIntroStats)
 library(magrittr)
 library(dplyr)
 library(ggplot2)
+library(ggfortify)
+library(survival)
 
 # Helper functions
 
@@ -24,44 +26,381 @@ library(ggplot2)
 mri <-
   read.table("data/mri.txt", header = TRUE) %>%
   dplyr::as_tibble() %>%
-  dplyr::select(crt, obstime) %>%
+  dplyr::select(crt, obstime, death) %>%
   dplyr::filter(!is.na(crt)) %>%
   dplyr::mutate(
     surv = dplyr::if_else(obstime >= 5 * 365.25, 1L, 0L),
-    high_crt = dplyr::if_else(crt > 1.2, 1L, 0L)
+    n_surv = 1L - surv,
+    high_crt = dplyr::if_else(crt > 1.2, 1L, 0L),
+    low_crt = 1L - high_crt
   )
+
+mri$surv_obj <- Surv(time = mri$obstime, event = mri$death)
 
 ```
 
 
-# _(Q1)_
+# _(Q1)_ (OR) Response: 5-Year mortality; Predictor: High Serum Creatinine Level
+
+In this question we look at a logistic regression model with an indicator of
+death within five years as the response (_death_), and an indicator of high
+serum creatinine level as the predictor ($crt_{H}$):
+
+$$ logit(p_{i}) = log(\frac{p_{i}}{1-p_{i}}) = \beta_{0} + \beta_{1} \cdot crt_{H}  $$
+$$ Pr(death_{i} = 1) = p_{i} $$
+
+```{r}
+DvH_mdl <- regress("odds", n_surv ~ high_crt, data = mri)
+DvH_coef <- DvH_mdl$coefficients[, 1]
+```
+
 
 ## _(Q1.a)_
+
+This model is saturated, since the predictor variable (_high crt_) has the same
+number of groupings (_low_, _high_) as the regression model has parameters
+($\beta_{0}$, $\beta_{1}$). Or, put another way, each group can be fit exactly
+with the model - information does not need to be borrowed from across groups.
+
+
 ## _(Q1.b)_
-## _(Q1.c)_
-## _(Q1.d)_
+
+For this model, we have:
+
+ - Intercept $\beta_{0} =$ `r round(DvH_coef[1], 2)`
+ - Slope $\beta_{1} =$ `r round(DvH_coef[2], 2)`
+
+Here, the exponentiated intercept is interpreted as the odds of death within
+five years for the subset of the population that does not have a high serum
+creatinine levels.
+
+The exponentiated slope is interpreted as odds ratio of death within five years
+between the subset of the population that has high creatinine levels and the
+subset that doesn't have high creatinine levels.
+
+
+## _(Q1.c,d)_
+
+```{r}
+DvH_odds <- exp(c(DvH_coef[1], sum(DvH_coef)))
+DvH_prop <- DvH_odds / (1 + DvH_odds)
+```
+
+ - Estimated **odds** of dying within 5 years for subjects with **low**
+   creatinine levels: `r round(DvH_odds[1], 2)`
+ - Estimated **probability** of dying within 5 years for subjects with **low**
+   creatinine levels: `r round(DvH_prop[1], 2)`
+
+ - Estimated **odds** of dying within 5 years for subjects with **high**
+   creatinine levels: `r round(DvH_odds[2], 2)`
+ - Estimated **probability** of dying within 5 years for subjects with **high**
+   creatinine levels: `r round(DvH_prop[2], 2)`
+
+
 ## _(Q1.e)_
-## _(Q1.f)_
-## _(Q1.g)_
+
+```{r}
+
+DvH_inf <- DvH_mdl$transformed %>%
+  as_tibble() %>%
+  select(-`F stat`, -`df`) %>%
+  magrittr::set_colnames(c("Estimate", "2.5%", "97.5%", "P-val")) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^5, 2), "e-5")) %>%
+  slice(2)
+
+knitr::kable(
+  DvH_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Statistical inference of the relationship between binary",
+                  "indicator of death and binary indicator of high crt")
+)
+
+```
+
+From logistic regression analysis, we estimate that for two groups that differ
+by binary indicator of serum creatinine level ($high > 1.2 \frac{mg}{dl}$,
+$low \le 1.2 \frac{mg}{dl}$), the odds of death are `r round(DvH_inf[[1, 1]], 2)`
+times larger for the group with high creatinine levels. A $95\%$ confidence
+interval suggests that this observation is not unusual if the true odd ratio
+were anywhere from `r round(DvH_inf[[1, 2]], 2)` to `r round(DvH_inf[[1, 3]], 2)`.
+Because this interval does not include $1$, in addition to the fact that the
+two-sided _P_-value for this estimate is less than $.05$, suggests that we
+can reject the null hypothesis that there is no association between five-year
+mortality and binary indicator of serum creatinine level.
 
 
-# _(Q2)_
+## _(Q1.f,g)_
+
+```{r}
+DvL_mdl <- regress("odds", n_surv ~ low_crt, data = mri)
+DvL_coef <- DvL_mdl$coefficients[, 1]
+SvH_mdl <- regress("odds", surv ~ high_crt, data = mri)
+SvH_coef <- SvH_mdl$coefficients[, 1]
+
+coef_tbl <-
+  tibble(
+    parameter = c("Intercept", "Slope"),
+    `death~crtH` = DvH_coef,
+    `death~crtL` = DvL_coef,
+    `survival~crtH` = SvH_coef
+  ) %>%
+  tidyr::pivot_longer(cols = -parameter, names_to = "model", values_to = "val") %>%
+  tidyr::pivot_wider(names_from = "model", values_from = "val")
+
+knitr::kable(
+  coef_tbl,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Comparison of different representations of the same",
+                  "underlying model")
+)
+
+
+```
+
+
+If our original model instead used an indicator of **low** serum creatinine
+level as the predictor,
+
+If our original model instead used an indicator of **surviving at least 5 years**
+as the response variable,
+
+
+# _(Q2)_ (OR) Response: High Serum Creatinine Level; Predictor: 5-Year mortality
+
+In this question we look at a logistic regression model with an indicator of
+high serum creatinine level as the response ($crt_{H}$), and an indicator of
+death within 5 years as the predictor (_death_):
+
+$$ logit(p_{i}) = log(\frac{p_{i}}{1-p_{i}}) = \beta_{0} + \beta_{1} \cdot death  $$
+$$ Pr(crt_{Hi} = 1) = p_{i} $$
+
+```{r}
+HvD_mdl <- regress("odds", high_crt ~ n_surv, data = mri)
+HvD_coef <- HvD_mdl$coefficients[, 1]
+```
+
 
 ## _(Q2.a)_
-## _(Q2.b)_
-## _(Q2.c)_
+
+For this model, we have:
+
+ - Intercept $\beta_{0} =$ `r round(HvD_coef[1], 2)`
+ - Slope $\beta_{1} =$ `r round(HvD_coef[2], 2)`
+
+Here, the exponentiated intercept is interpreted as the odds of having a high
+creatinine level for the subset of the population that has survived at least
+five years
+
+The exponentiated slope is interpreted as odds ratio of having a high creatinine
+level between the subset of the population that died within five years and
+the subset that survived at least five years.
+
+
+## _(Q2.b,c)_
+
+```{r}
+HvD_odds <- exp(c(HvD_coef[1], sum(HvD_coef)))
+HvD_prop <- HvD_odds / (1 + HvD_odds)
+```
+
+ - Estimated **odds** of high creatinine level for subjects who **die** within
+   5 years: `r round(HvD_odds[2], 2)`
+ - Estimated **probability** of high serum creatinine for subjects who **die**
+   within 5 years: `r round(HvD_prop[2], 2)`
+
+ - Estimated **odds** of high creatinine level for subjects who **survive** at
+   least 5 years: `r round(HvD_odds[1], 2)`
+ - Estimated **probability** of high serum creatinine for subjects who **survive**
+   at least 5 years: `r round(HvD_prop[1], 2)`
+
+
 ## _(Q2.d)_
+
+```{r}
+
+HvD_inf <- HvD_mdl$transformed %>%
+  as_tibble() %>%
+  select(-`F stat`, -`df`) %>%
+  magrittr::set_colnames(c("Estimate", "2.5%", "97.5%", "P-val")) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^5, 2), "e-5")) %>%
+  slice(2)
+
+knitr::kable(
+  HvD_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Statistical inference of the relationship between binary",
+                  "indicator of high crt and binary indicator of death")
+)
+
+```
+
+
+
+
 ## _(Q2.e)_
 
 
-# _(Q3)_
+
+
+# _(Q3)_ (RD) Response: 5-Year mortality; Predictor: High Serum Creatinine Level
+
+This question asks us to assess the association between 5-year mortality and
+serum creatinine level using the risk difference (RD). Since our response is
+binary (_death_), we can use a linear model like:
+
+$$ E[death_{i} | crt_{Hi}] = \beta_{0} + \beta_{1} \cdot death_{i}$$
+
+```{r}
+rd_mdl <- regress("mean", n_surv ~ high_crt, data = mri)
+rd_coef <- rd_mdl$coefficients[, 1]
+```
+
+
+## _(Q3.a,b)_
+
+For this model, we have:
+
+ - Intercept $\beta_{0} =$ `r round(rd_coef[1], 2)`
+ - Slope $\beta_{1} =$ `r round(rd_coef[2], 2)`
+
+Here, the intercept is interpreted as the estimated mean proportion of death
+within five years for the subset of the population that does not have high serum
+creatinine levels.
+
+The  slope is interpreted as the estimated difference in population means
+of death within five years between the two population subsets defined by high
+serum creatinine level indicator.
+
+
+## _(Q3.c)_
+
+```{r}
+rd_inf <- rd_mdl$coefficients %>%
+  as_tibble() %>%
+  select(Estimate, `95%L`, `95%H`, `Pr(>|t|)`) %>%
+  magrittr::set_colnames(c("Estimate", "2.5%", "97.5%", "P-val")) %>%
+  mutate(`P-val` = paste0(round(`P-val` * 10^4, 2), "e-4")) %>%
+  slice(2)
+
+knitr::kable(
+  rd_inf,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Statistical inference of the difference in mean estimates",
+                  "of proportion of death within 5 years between indicators",
+                  "of high creatinine")
+)
+```
+
+
 
 
 # _(Q4)_
 
 ## _(Q4.a)_
+
+```{r}
+DvC_mdl <- regress("odds", n_surv ~ crt, data = mri)
+DvC_coef <- DvC_mdl$coefficients[, 1]
+```
+
+### _(Q4.a.i)_
+
+ - Intercept $\beta_{0} =$ `r round(DvC_coef[1], 2)`
+ - Slope $\beta_{1} =$ `r round(DvC_coef[2], 2)`
+
+Here, the exponentiated intercept is interpreted as the odds of death within
+five years for the subset of the population that does not have a high serum
+creatinine levels.
+
+The exponentiated slope is interpreted as odds ratio of death within five years
+between the subset of the population that has high creatinine levels and the
+subset that doesn't have high creatinine levels.
+
+### _(Q4.a.ii)_
+
+
 ## _(Q4.b)_
+
+```{r}
+rdC_mdl <- regress("mean", n_surv ~ crt, data = mri)
+rdC_coef <- rdC_mdl$coefficients[, 1]
+```
+
+### _(Q4.b.i)_
+
+ - Intercept $\beta_{0} =$ `r round(rdC_coef[1], 2)`
+ - Slope $\beta_{1} =$ `r round(rdC_coef[2], 2)`
+
+Here, the intercept is interpreted as the estimated mean proportion of death
+within five years for the subset of the population with a mean serum creatinine
+level of $0 \frac{mg}{dl}$.
+
+The slope is interpreted as the estimated difference in mean probability of
+death within five years between the two population subsets that differ by
+$1 \frac{mg}{dl}$ of mean serum creatinine levels.
+
+
+### _(Q4.b.ii)_
+### _(Q4.b.iii)_
+
 ## _(Q4.c)_
 
+```{r}
+crt_predict <- c(0.8, 1.8, 2.8, 3.8)
 
-# _(Q5)_
+or_prop <- exp(DvC_coef[1] + DvC_coef[2] * crt_predict)
+
+pred_tbl <- tibble(
+  crt = crt_predict,
+  OR = or_prop / (1 + or_prop),
+  RD = rdC_coef[1] + rdC_coef[2] * crt_predict
+)
+
+knitr::kable(
+  pred_tbl,
+  booktabs = TRUE,
+  digits = 2,
+  caption = paste("Comparison of probability of death between OR and RD",
+                  "models with continuous crt variable")
+)
+
+```
+
+
+
+# _(Q5)_ Survival Analysis
+
+## _(Q5.a)_
+
+```{r}
+km_mdl <- survfit(surv_obj ~ high_crt, data = mri)
+
+km_plot <- autoplot(km_mdl) +
+  labs(
+    title = "Kaplan-Meier Estimated Survival Functions",
+    subtitle = "Grouped by Serum Creatinine Level Indicator",
+    x = "Observation Time (Days)",
+    y = "Percentage Surviving"
+  ) +
+  scale_fill_discrete(name = "Creatinine Level\nIndicator", labels = c("Low", "High")) +
+  scale_colour_discrete(name = "Creatinine Level\nIndicator", labels = c("Low", "High")) +
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
+
+km_plot
+```
+
+## _(Q5.b)_
+
+
+
+## _(Q5.c)_
+
+```{r}
+km_fit <- survdiff(surv_obj ~ high_crt, data = mri)
+```
+
