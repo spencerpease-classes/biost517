@@ -24,6 +24,7 @@ applications is stressed throughout.
  * Homework 5: Incomplete
  * Homework 6: ([link][6])
  * Homework 7: ([link][7])
+ * Homework 8: ([link][8])
 
 
 [1]: homework/hw01/
@@ -32,3 +33,4 @@ applications is stressed throughout.
 [4]: homework/hw04/
 [6]: homework/hw06/
 [7]: homework/hw07/
+[8]: homework/hw08/
